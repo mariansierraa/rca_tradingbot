@@ -308,8 +308,6 @@ def get_bar_data(symbol, timeframe):
         1, contract, '', '30 D', timeframe, what_to_show, True, 2, False, []
     )
 
-
-
 if __name__ == '__main__':
     # create a client object
     client = PTLClient(DEFAULT_HOST, TRADING_PORT, DEFAULT_CLIENT_ID)
