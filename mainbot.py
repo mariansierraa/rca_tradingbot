@@ -10,13 +10,11 @@ import time
 import datetime
 from threading import Thread
 import pandas as pd
-from lightweight_charts import Chart
 
 #ESTA FUNCIONANDO - VERIFICAR CALCULOS Y LATENCIA 
 
 # create a queue for data coming from Interactive Brokers API
 # Add global variables to store data separately for graphing and calculation
-graph_data_queue = queue.Queue()
 calc_data_queue = queue.Queue()
 low_data_queue = queue.Queue()
 
@@ -24,7 +22,7 @@ low_data_queue = queue.Queue()
 current_lines = []
 
 # initial chart symbol to show
-INITIAL_SYMBOL = "AMD"
+INITIAL_SYMBOL = "KO"
 INITIAL_POSITION = "BUY"
 
 if INITIAL_POSITION == "BUY":
@@ -57,6 +55,7 @@ class PTLClient(EWrapper, EClient):
         self.atr_data = None  # Store ATR data
         self.prev_low_val = None
         self.connect(host, port, client_id)
+        print('connected')
 
         # create a new Thread
         thread = Thread(target=self.run)
@@ -85,7 +84,6 @@ class PTLClient(EWrapper, EClient):
 
         # Route data to the appropriate queue based on req_id
         if req_id == 1:  # Graph data
-            graph_data_queue.put(data)
             low_data_queue.put(data)
         elif req_id == 2:  # Calculation data
             calc_data_queue.put(data)
@@ -101,8 +99,6 @@ class PTLClient(EWrapper, EClient):
                 self.place_order_if_ready()
             else:
                 print("ATR or Previous Low not calculated. Order will not be placed.")
-            print("Graph data received. Updating chart.")
-            update_chart()
         elif reqId == 2:  # Calculation data
             print("Calculation data received. Performing calculations.")
             self.collect_data_from_queue()
@@ -127,7 +123,6 @@ class PTLClient(EWrapper, EClient):
 
         # Create a DataFrame from the collected data
         df = pd.DataFrame(self.data)
-        print(df.head(5))
 
         # Ensure that the 'date' column is properly sorted and valid
         #df['date'] = pd.to_datetime(df['date'])  # Convert to datetime if necessary
@@ -312,102 +307,18 @@ def get_bar_data(symbol, timeframe):
     client.reqHistoricalData(
         1, contract, '', '30 D', timeframe, what_to_show, True, 2, False, []
     )
-    chart.spinner(True)
-    time.sleep(1)
-    chart.watermark(symbol)
 
-
-# handler for the screenshot button
-def take_screenshot(key):
-    img = chart.screenshot()
-    t = time.time()
-    with open(f"screenshot-{t}.png", 'wb') as f:
-        f.write(img)
-
-
-def on_search(chart, searched_string):
-    get_bar_data(searched_string, chart.topbar['timeframe'].value)
-    chart.topbar['symbol'].set(searched_string)
-
-
-def on_timeframe_selection(chart):
-    print("Selected timeframe")
-    print(chart.topbar['symbol'].value, chart.topbar['timeframe'].value)
-    get_bar_data(chart.topbar['symbol'].value, chart.topbar['timeframe'].value)
-    
-
-# callback for when the user changes the position of the horizontal line
-def on_horizontal_line_move(chart, line):
-    print(f'Horizontal line moved to: {line.price}')
-
-
-
-# called when we want to update what is rendered on the chart 
-def update_chart():
-    global current_lines
-    try:
-        bars = []
-        while True:  # Keep checking the queue for new data
-            data = graph_data_queue.get_nowait()
-            bars.append(data)
-    except queue.Empty:
-        print("empty queue")
-    finally:
-        # once we have received all the data, convert to pandas dataframe
-        df = pd.DataFrame(bars)
-        print(df)
-
-        # set the data on the chart
-        chart.set(df)
-        
-        if not df.empty:
-            # draw a horizontal line at the high
-            chart.horizontal_line(df['high'].max(), func=on_horizontal_line_move)
-
-            # if there were any indicator lines on the chart already (eg. SMA), clear them so we can recalculate
-            if current_lines:
-                for l in current_lines:
-                    l.delete()
-            
-            current_lines = []
-
-            # calculate any new lines to render
-            # create a line with SMA label on the chart
-            line = chart.create_line(name='SMA 50')
-            line.set(pd.DataFrame({
-                'time': df['date'],
-                f'SMA 50': df['close'].rolling(window=50).mean()
-            }).dropna())
-            current_lines.append(line)
-
-            # once we get the data back, we don't need a spinner anymore
-            chart.spinner(False)
 
 
 if __name__ == '__main__':
     # create a client object
     client = PTLClient(DEFAULT_HOST, TRADING_PORT, DEFAULT_CLIENT_ID)
 
-    # create chart object, specify display settings
-    chart = Chart(toolbox=True, width=1000, inner_width=1, inner_height=1)
+    time.sleep(5)
 
-    chart.legend(True)
-    
-    # set up a function to call when searching for symbol
-    chart.events.search += on_search
+    if client.isConnected():
+        get_calc_data(INITIAL_SYMBOL, '1 hour')
+        get_bar_data(INITIAL_SYMBOL, '1 min')
+    else:
+        print("Client is not connected.")
 
-    # set up top bar
-    chart.topbar.textbox('symbol', INITIAL_SYMBOL)
-
-    # give ability to switch between timeframes
-    chart.topbar.switcher('timeframe', ('1 min', '5 mins', '1 hour'), default='1 min', func=on_timeframe_selection)
-
-    # populate initial chart
-    get_calc_data(INITIAL_SYMBOL, '1 hour')
-    get_bar_data(INITIAL_SYMBOL, '1 min')
-
-    # create a button for taking a screenshot of the chart
-    chart.topbar.button('screenshot', 'Screenshot', func=take_screenshot)
-
-    # show the chart
-    chart.show(block=True)
