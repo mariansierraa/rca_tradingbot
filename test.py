@@ -24,8 +24,8 @@ low_data_queue = queue.Queue()
 current_lines = []
 
 # initial chart symbol to show
-INITIAL_SYMBOL = "AMZN"
-INITIAL_POSITION = "SELL"
+INITIAL_SYMBOL = "AMD"
+INITIAL_POSITION = "BUY"
 
 if INITIAL_POSITION == "BUY":
     END_POSITION = "SELL"
@@ -137,6 +137,7 @@ class PTLClient(EWrapper, EClient):
         df['TR'] = df[['high', 'prev_close']].max(axis=1) - df[['low', 'prev_close']].min(axis=1)
         # Calculate ATR using a rolling window
         df['ATR'] = df['TR'].rolling(window=period).mean()
+        df['ATR'] = df['ATR']/1.7
 
         return df[['date', 'ATR']].dropna()
     
