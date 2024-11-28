@@ -22,8 +22,8 @@ low_data_queue = queue.Queue()
 current_lines = []
 
 # initial chart symbol to show
-INITIAL_SYMBOL = "KO"
-INITIAL_POSITION = "BUY"
+INITIAL_SYMBOL = "MSFT"
+INITIAL_POSITION = "SELL"
 
 if INITIAL_POSITION == "BUY":
     END_POSITION = "SELL"
@@ -305,15 +305,13 @@ def get_bar_data(symbol, timeframe):
     what_to_show = 'TRADES'  
     #now = datetime.datetime.now().strftime('%Y%m%d %H:%M:%S')
     client.reqHistoricalData(
-        1, contract, '', '30 D', timeframe, what_to_show, True, 2, False, []
+        1, contract, '', '1 D', timeframe, what_to_show, True, 2, False, []
     )
 
 if __name__ == '__main__':
     # create a client object
     client = PTLClient(DEFAULT_HOST, TRADING_PORT, DEFAULT_CLIENT_ID)
-
-    time.sleep(5)
-
+    time.sleep(1)
     if client.isConnected():
         get_calc_data(INITIAL_SYMBOL, '1 hour')
         get_bar_data(INITIAL_SYMBOL, '1 min')
